@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mindset/pages/welcome.dart';
+import 'package:mindset/pages/selection.dart';
+import '../services/api_service.dart';
+import '../services/country_service.dart';
+import '../services/storage_service.dart';
+import '../widgets/country_picker.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -10,17 +15,106 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   final _usernameController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscureText = true;
   String _selectedGender = '';
+  bool _isLoading = false;
+  Country? _selectedCountry;
+
+  @override
+  void initState() {
+    super.initState();
+    // Default to Libya for user convenience
+    _selectedCountry = CountryService.getLibya();
+  }
 
   @override
   void dispose() {
     _usernameController.dispose();
-    _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleSignUp() async {
+    // Validate inputs
+    if (_usernameController.text.isEmpty ||
+        _selectedCountry == null ||
+        _phoneController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _selectedGender.isEmpty) {
+      _showSnackBar('Please fill all fields and select country', Colors.red);
+      return;
+    }
+
+    // Format phone number with selected country
+    String formattedPhone = CountryService.formatPhoneNumber(_phoneController.text.trim(), _selectedCountry!);
+    
+    // Validate phone number for the selected country
+    if (!CountryService.isValidPhoneNumber(formattedPhone, _selectedCountry!)) {
+      _showSnackBar('Please enter a valid phone number for ${_selectedCountry!.name}\nExample: ${_selectedCountry!.example}', Colors.red);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final result = await ApiService.register(
+        _usernameController.text.trim(),
+        formattedPhone,
+        _passwordController.text,
+        _selectedGender,
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (result['success']) {
+        _showSnackBar('${result['message']} - Welcome to Mindset from ${_selectedCountry!.flag}!', Colors.green);
+        
+        // If registration includes token, save login data for automatic login
+        if (result['token'] != null && result['username'] != null) {
+          await StorageService.saveLoginData(
+            token: result['token'],
+            username: result['username'],
+            phoneNumber: formattedPhone,
+          );
+        }
+        
+        // Save gender for use in welcome page and profile
+        await StorageService.saveGender(_selectedGender);
+        
+        // Navigate to selection page for new users to choose their learning path
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SelectionPage(
+              username: result['username'] ?? _usernameController.text,
+            ),
+          ),
+        );
+      } else {
+        _showSnackBar(result['message'], Colors.red);
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showSnackBar('Registration failed: $e', Colors.red);
+    }
+  }
+
+  void _showSnackBar(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+      ),
+    );
   }
 
   @override
@@ -107,30 +201,15 @@ class _SignUpPageState extends State<SignUpPage> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        // Email field
-                        TextField(
-                          controller: _emailController,
-                          style: const TextStyle(color: Colors.white),
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: InputDecoration(
-                            hintText: 'Email',
-                            hintStyle: const TextStyle(color: Colors.white60),
-                            prefixIcon: const Icon(Icons.email_outlined, color: Colors.white70),
-                            filled: true,
-                            fillColor: Colors.white.withOpacity(0.1),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-                            ),
-                          ),
+                        // Country Phone Field
+                        CountryPhoneField(
+                          controller: _phoneController,
+                          selectedCountry: _selectedCountry,
+                          onCountrySelected: (country) {
+                            setState(() {
+                              _selectedCountry = country;
+                            });
+                          },
                         ),
                         const SizedBox(height: 16),
                         // Gender Selection
@@ -277,32 +356,7 @@ class _SignUpPageState extends State<SignUpPage> {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: () {
-                              // Validate inputs
-                              if (_usernameController.text.isEmpty ||
-                                  _emailController.text.isEmpty ||
-                                  _passwordController.text.isEmpty ||
-                                  _selectedGender.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Please fill all fields'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                                return;
-                              }
-
-                              // Navigate to welcome page
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => WelcomePage(
-                                    username: _usernameController.text,
-                                    gender: _selectedGender,
-                                  ),
-                                ),
-                              );
-                            },
+                            onPressed: _handleSignUp,
                             style: ElevatedButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -311,14 +365,22 @@ class _SignUpPageState extends State<SignUpPage> {
                               elevation: 2,
                               shadowColor: const Color.fromARGB(52, 83, 83, 83),
                             ),
-                            child: const Text(
-                              'Create Account',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Create Account',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 16),

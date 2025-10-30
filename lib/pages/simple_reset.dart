@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/country_service.dart';
-import '../services/storage_service.dart';
 import '../widgets/country_picker.dart';
 
-class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+class SimpleResetPage extends StatefulWidget {
+  const SimpleResetPage({super.key});
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<SimpleResetPage> createState() => _SimpleResetPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _SimpleResetPageState extends State<SimpleResetPage> {
   final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscureText = true;
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscureNewText = true;
+  bool _obscureConfirmText = true;
   bool _isLoading = false;
   Country? _selectedCountry;
 
@@ -28,13 +29,29 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void dispose() {
     _phoneController.dispose();
-    _passwordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    if (_selectedCountry == null || _phoneController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showSnackBar('Please select country and fill all fields', Colors.red);
+  Future<void> _handleResetPassword() async {
+    if (_selectedCountry == null || _phoneController.text.isEmpty) {
+      _showSnackBar('Please select country and enter phone number', Colors.red);
+      return;
+    }
+
+    if (_newPasswordController.text.isEmpty) {
+      _showSnackBar('Please enter a new password', Colors.red);
+      return;
+    }
+
+    if (_newPasswordController.text.length < 6) {
+      _showSnackBar('Password must be at least 6 characters', Colors.red);
+      return;
+    }
+
+    if (_newPasswordController.text != _confirmPasswordController.text) {
+      _showSnackBar('Passwords do not match', Colors.red);
       return;
     }
 
@@ -52,34 +69,18 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final result = await ApiService.login(
-        formattedPhone,
-        _passwordController.text,
-      );
+      final result = await ApiService.resetPassword(formattedPhone, _newPasswordController.text);
 
       setState(() {
         _isLoading = false;
       });
 
       if (result['success']) {
-        // Save login data for persistent login
-        String username = result['username'] ?? _phoneController.text;
-        String token = result['token'] ?? '';
-        
-        await StorageService.saveLoginData(
-          token: token,
-          username: username,
-          phoneNumber: formattedPhone,
-        );
-        
-        _showSnackBar('${result['message']} - Welcome ${username} from ${_selectedCountry!.flag}', Colors.green);
-        
-        // Navigate to home page after successful login (existing users)
-        Navigator.pushReplacementNamed(
-          context, 
-          '/home',
-          arguments: {'username': username},
-        );
+        _showSnackBar('✅ ${result['message']} - Password reset for ${_selectedCountry!.flag}!', Colors.green);
+        // Navigate back to login after successful reset
+        Future.delayed(const Duration(seconds: 2), () {
+          Navigator.pushReplacementNamed(context, '/login');
+        });
       } else {
         _showSnackBar(result['message'], Colors.red);
       }
@@ -87,15 +88,16 @@ class _LoginPageState extends State<LoginPage> {
       setState(() {
         _isLoading = false;
       });
-      _showSnackBar('Login failed: $e', Colors.red);
+      _showSnackBar('Password reset failed: $e', Colors.red);
     }
   }
 
-  void _showSnackBar(String message, Color color) {
+  void _showSnackBar(String message, Color backgroundColor) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: color,
+        backgroundColor: backgroundColor,
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -143,7 +145,7 @@ class _LoginPageState extends State<LoginPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Text(
-                          '🚀 Let\'s Login',
+                          '🔑 Reset Password',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 28,
@@ -152,13 +154,15 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Great to see you again!',
+                          'Enter your phone number and new password',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 16,
                           ),
+                          textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 40),
+                        
                         // Country Phone Field
                         CountryPhoneField(
                           controller: _phoneController,
@@ -169,22 +173,28 @@ class _LoginPageState extends State<LoginPage> {
                             });
                           },
                         ),
+
                         const SizedBox(height: 16),
-                        // Password field
+
+                        // New Password Field
                         TextField(
-                          controller: _passwordController,
-                          obscureText: _obscureText,
+                          controller: _newPasswordController,
+                          obscureText: _obscureNewText,
                           style: const TextStyle(color: Colors.white),
                           decoration: InputDecoration(
-                            hintText: 'Password',
+                            hintText: 'New Password',
                             hintStyle: const TextStyle(color: Colors.white60),
-                            prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
+                            prefixIcon: const Icon(Icons.lock, color: Colors.white70),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureText ? Icons.visibility_off : Icons.visibility,
+                                _obscureNewText ? Icons.visibility_off : Icons.visibility,
                                 color: Colors.white70,
                               ),
-                              onPressed: () => setState(() => _obscureText = !_obscureText),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureNewText = !_obscureNewText;
+                                });
+                              },
                             ),
                             filled: true,
                             fillColor: Colors.white.withOpacity(0.1),
@@ -202,26 +212,54 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           ),
                         ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TextButton(
-                            onPressed: () => Navigator.pushNamed(context, '/simple-reset'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Colors.white70,
+
+                        const SizedBox(height: 16),
+
+                        // Confirm Password Field
+                        TextField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirmText,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            hintText: 'Confirm New Password',
+                            hintStyle: const TextStyle(color: Colors.white60),
+                            prefixIcon: const Icon(Icons.lock_outline, color: Colors.white70),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmText ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.white70,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmText = !_obscureConfirmText;
+                                });
+                              },
                             ),
-                            child: const Text(
-                              'Forgot Password?',
-                              style: TextStyle(fontSize: 14),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.1),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
                             ),
                           ),
                         ),
+
                         const SizedBox(height: 24),
-                        // Login Button
+
+                        // Reset Password Button
                         SizedBox(
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
+                            onPressed: _isLoading ? null : _handleResetPassword,
                             style: ElevatedButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -231,31 +269,35 @@ class _LoginPageState extends State<LoginPage> {
                               shadowColor: const Color.fromARGB(52, 83, 83, 83),
                             ),
                             child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
                                   ),
+                                )
+                              : const Text(
+                                  'Reset Password',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                           ),
                         ),
+
                         const SizedBox(height: 16),
-                        // Sign Up Button
+
+                        // Back to Login Button
                         SizedBox(
                           width: double.infinity,
                           height: 48,
                           child: OutlinedButton(
-                            onPressed: () => Navigator.pushNamed(context, '/signup'),
+                            onPressed: () {
+                              Navigator.pushReplacementNamed(context, '/login');
+                            },
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: Colors.white.withOpacity(0.5)),
                               shape: RoundedRectangleBorder(
@@ -263,12 +305,28 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                             ),
                             child: const Text(
-                              'Create Account',
+                              'Back to Login',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // SMS Reset Option
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(context, '/forgot-password');
+                          },
+                          child: const Text(
+                            'Use SMS Reset Instead',
+                            style: TextStyle(
+                              color: Colors.white60,
+                              fontSize: 14,
                             ),
                           ),
                         ),
@@ -283,4 +341,4 @@ class _LoginPageState extends State<LoginPage> {
       ),
     );
   }
-}
+} 

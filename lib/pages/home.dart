@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../services/storage_service.dart';
+import 'games.dart';
+import 'catagory.dart';
 import 'dart:math';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final String username;
+  
+  const HomePage({super.key, this.username = 'User'});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -16,6 +21,7 @@ class FloatingButton extends StatefulWidget {
   final int currentLevel;
   final Color color;
   final VoidCallback onLevelComplete;
+  final Function(int) onSpecificLevelComplete;
 
   const FloatingButton({
     Key? key,
@@ -24,6 +30,7 @@ class FloatingButton extends StatefulWidget {
     required this.buttonNumber,
     required this.currentLevel,
     required this.onLevelComplete,
+    required this.onSpecificLevelComplete,
     this.color = Colors.blue,
   }) : super(key: key);
 
@@ -73,99 +80,45 @@ class _FloatingButtonState extends State<FloatingButton> with SingleTickerProvid
           top: widget.top + (isUnlocked ? _animation.value : 0),
           child: GestureDetector(
             onTapDown: isUnlocked ? (_) {
-              showDialog(
-                context: context,
-                barrierColor: Colors.transparent,
-                builder: (BuildContext context) {
-                  return Stack(
-                    children: [
-                      Positioned(
-                        left: widget.left - 25,
-                        top: widget.top - 25,
-                        child: Container(
-                          width: 150,
-                          height: 150,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                const Color.fromARGB(55, 33, 149, 243).withOpacity(0.15 * opacity),
-                                const Color.fromARGB(28, 33, 149, 243).withOpacity(0.05 * opacity),
-                                const Color.fromARGB(0, 0, 0, 0),
-                              ],
-                              stops: const [0.1, 0.6, 1.0],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
-
-              // Test: Show level completion dialog
-              showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    backgroundColor: const Color(0xFF0A1832),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    title: Text(
-                      'Level ${widget.buttonNumber}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Testing Level ${widget.buttonNumber}',
-                          style: const TextStyle(color: Colors.white70),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          isUnlocked ? 'This level is unlocked!' : 'This level is locked!',
-                          style: TextStyle(
-                            color: isUnlocked ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      // Complete Level button
-                      TextButton(
-                        onPressed: () {
-                          widget.onLevelComplete(); // Call the callback instead of direct method
-                          Navigator.pop(context);
-                          
-                          // Show feedback
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Level ${widget.buttonNumber} completed! Level ${widget.buttonNumber + 1} unlocked!',
-                                style: const TextStyle(color: Colors.white),
-                                textAlign: TextAlign.center,
-                              ),
-                              backgroundColor: Colors.green.withOpacity(0.7),
-                              duration: const Duration(seconds: 2),
-                              behavior: SnackBarBehavior.floating,
-                              margin: const EdgeInsets.only(bottom: 100, left: 50, right: 50),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                            ),
-                          );
-                        },
-                        child: const Text('Complete Level', style: TextStyle(color: Colors.blue)),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Close', style: TextStyle(color: Colors.white70)),
-                      ),
-                    ],
-                  );
-                },
-              );
+              // Navigate to category page for this level
+              String levelTitle = '';
+              switch (widget.buttonNumber) {
+                case 1:
+                  levelTitle = 'Level One: Positive Thinking';
+                  break;
+                case 2:
+                  levelTitle = 'Level Two: Self Confidence';
+                  break;
+                case 3:
+                  levelTitle = 'Level Three: Time Management';
+                  break;
+                case 4:
+                  levelTitle = 'Level Four: Communication';
+                  break;
+                case 5:
+                  levelTitle = 'Level Five: Problem Solving';
+                  break;
+                case 6:
+                  levelTitle = 'Level Six: Leadership';
+                  break;
+                case 7:
+                  levelTitle = 'Level Seven: Innovation';
+                  break;
+                default:
+                  levelTitle = 'Level ${widget.buttonNumber}';
+              }
+              
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LevelTopicsPage(),
+                ),
+              ).then((result) {
+                // If level was completed, trigger level unlock with the specific level number
+                if (result != null && result is int) {
+                  widget.onSpecificLevelComplete(result);
+                }
+              });
             } : null,
             child: Stack(
               alignment: Alignment.center,
@@ -309,6 +262,7 @@ class LeaderboardUser {
   final int problemsSolved;
   final int daysStreak;
   final List<String> achievements;
+  final String? githubUrl;
 
   LeaderboardUser({
     required this.name,
@@ -319,6 +273,7 @@ class LeaderboardUser {
     this.problemsSolved = 0,
     this.daysStreak = 0,
     this.achievements = const [],
+    this.githubUrl,
   });
 }
 
@@ -385,49 +340,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   double button7Top = 30.0;
 
   // Update the leaderboard users with programming theme
-  final List<LeaderboardUser> _leaderboardUsers = [
-    LeaderboardUser(
-      name: "Sarah Chen",
-      stars: 250,
-      level: 7,
-      rank: "Code Master",
-      avatar: "Assets/items/smart.svg",
-      problemsSolved: 145,
-      daysStreak: 30,
-      achievements: ["Algorithm Master", "30 Days Streak", "Problem Solver"],
-    ),
-    LeaderboardUser(
-      name: "Alex Kumar",
-      stars: 245,
-      level: 7,
-      rank: "Algorithm Expert",
-      avatar: "Assets/items/smart.svg",
-      problemsSolved: 140,
-      daysStreak: 25,
-      achievements: ["Quick Learner", "Code Ninja", "Early Bird"],
-    ),
-    LeaderboardUser(
-      name: "Maria Garcia",
-      stars: 220,
-      level: 6,
-      rank: "Problem Solver",
-      avatar: "Assets/items/smart.svg",
-    ),
-    LeaderboardUser(
-      name: "James Wilson",
-      stars: 200,
-      level: 6,
-      rank: "Code Explorer",
-      avatar: "Assets/items/smart.svg",
-    ),
-    LeaderboardUser(
-      name: "Emma Zhang",
-      stars: 190,
-      level: 5,
-      rank: "Rising Coder",
-      avatar: "Assets/items/smart.svg",
-    ),
-  ];
+  late final List<LeaderboardUser> _leaderboardUsers;
 
   // Avatar skins
   final List<AvatarSkin> avatarSkins = [
@@ -556,6 +469,174 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.3).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    _initializeUser();
+  }
+
+  void _initializeUser() async {
+    // Get username from storage if not provided or is default
+    String currentUsername = widget.username;
+    if (currentUsername == 'User') {
+      String? storedUsername = await StorageService.getUsername();
+      if (storedUsername != null && storedUsername.isNotEmpty) {
+        currentUsername = storedUsername;
+      }
+    }
+
+    // Initialize leaderboard users with actual username
+    _leaderboardUsers = [
+      LeaderboardUser(
+        name: currentUsername,
+        stars: 250,
+        level: 7,
+        rank: "Code Master",
+        avatar: "Assets/items/smart.svg",
+        problemsSolved: 145,
+        daysStreak: 30,
+        achievements: ["Algorithm Master", "30 Days Streak", "Problem Solver"],
+        githubUrl: null,
+      ),
+      LeaderboardUser(
+        name: "Alex Kumar",
+        stars: 245,
+        level: 7,
+        rank: "Algorithm Expert",
+        avatar: "Assets/items/smart.svg",
+        problemsSolved: 140,
+        daysStreak: 25,
+        achievements: ["Quick Learner", "Code Ninja", "Early Bird"],
+        githubUrl: null,
+      ),
+      LeaderboardUser(
+        name: "Maria Garcia",
+        stars: 220,
+        level: 6,
+        rank: "Problem Solver",
+        avatar: "Assets/items/smart.svg",
+        githubUrl: null,
+      ),
+      LeaderboardUser(
+        name: "James Wilson",
+        stars: 200,
+        level: 6,
+        rank: "Code Explorer",
+        avatar: "Assets/items/smart.svg",
+        githubUrl: null,
+      ),
+      LeaderboardUser(
+        name: "Emma Zhang",
+        stars: 190,
+        level: 5,
+        rank: "Rising Coder",
+        avatar: "Assets/items/smart.svg",
+        githubUrl: null,
+      ),
+    ];
+
+    // Update the state to refresh UI with correct username
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+
+
+  void _showHibaWelcome() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.purple[900]?.withOpacity(0.95),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.purple[300]!, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.purple.withOpacity(0.3),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Hiba's character
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SvgPicture.asset(
+                    'Assets/charcters/hiba.svg',
+                    width: 68,
+                    height: 68,
+                  ),
+                ),
+              ),
+              SizedBox(height: 20),
+              // Welcome message
+              Text(
+                'Amazing Achievement!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 12),
+              Text(
+                'Hi ${_leaderboardUsers.isNotEmpty ? _leaderboardUsers[0].name : widget.username}! I\'m Hiba, and I\'m so proud of you!',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16),
+              Text(
+                'You\'ve completed ALL categories and mastered every skill! You\'ve shown incredible dedication and growth. You\'re now ready for any challenge life brings your way!',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 24),
+              // Action buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple[600],
+                      padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Text(
+                      'Thank You!',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -574,14 +655,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return;
     }
     
+    if (index == 2) {
+      // Navigate to games page
+      String currentUsername = _leaderboardUsers.isNotEmpty ? _leaderboardUsers[0].name : widget.username;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GamesPage(username: currentUsername),
+        ),
+      );
+      return;
+    }
+    
     // Show feedback dialog
     String message = '';
     switch (index) {
       case 1:
         message = 'You are home!';
-        break;
-      case 2:
-        message = 'Loading Games...';
         break;
     }
     
@@ -666,7 +756,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
+                          SizedBox(
                             width: 32,
                             height: 32,
                             child: SvgPicture.asset(
@@ -757,13 +847,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                         top: 0,
                                         child: Container(
                                           padding: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF64B5F6),
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFF64B5F6),
                                             shape: BoxShape.circle,
                                           ),
                                           child: Text(
                                             '${index + 1}',
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -775,7 +865,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 ),
                                 title: Text(
                                   user.name,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -789,7 +879,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
+                                    SizedBox(
                                       width: 24,
                                       height: 24,
                                       child: SvgPicture.asset(
@@ -972,7 +1062,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Achievements',
                         style: TextStyle(
                           color: Colors.white,
@@ -986,7 +1076,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         runSpacing: 8,
                         children: user.achievements.map((achievement) {
                           return Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.blue.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(15),
@@ -997,7 +1087,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             ),
                             child: Text(
                               achievement,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                               ),
@@ -1089,6 +1179,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       currentLevel: currentLevel,
       color: color,
       onLevelComplete: unlockNextLevel,
+      onSpecificLevelComplete: unlockSpecificLevel,
     );
   }
 
@@ -1097,6 +1188,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() {
       if (currentLevel < 7) { // Assuming 7 is the maximum level
         currentLevel++;
+        
+        // Show Hiba's welcome when all levels are completed (level 6 reached, meaning all 6 categories completed)
+        if (currentLevel == 6) {
+          // Use a post frame callback to show dialog after the state update
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showHibaWelcome();
+          });
+        }
+      }
+    });
+  }
+
+  // Method to unlock a specific level and show Hiba's popup only when all levels are completed
+  void unlockSpecificLevel(int levelNumber) {
+    setState(() {
+      if (levelNumber <= 7) { // Maximum 7 levels
+        currentLevel = levelNumber;
+        
+        // Show Hiba's welcome only when level 6 is reached (all 6 categories completed)
+        if (currentLevel == 6) {
+          // Use a post frame callback to show dialog after the state update
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showHibaWelcome();
+          });
+        }
       }
     });
   }
@@ -1111,7 +1227,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           backgroundColor: Colors.transparent,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
             decoration: BoxDecoration(
               color: const Color(0xFF0A1832).withOpacity(0.95),
               borderRadius: BorderRadius.circular(20),
@@ -1127,9 +1243,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                 // Profile Cover and Header
                 Container(
                   height: 200,
@@ -1163,15 +1280,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                 color: Colors.black.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Row(
+                              child: const Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.palette_outlined,
                                     color: Colors.white,
                                     size: 16,
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Text(
+                                  SizedBox(width: 4),
+                                  Text(
                                     'Cover Color',
                                     style: TextStyle(
                                       color: Colors.white,
@@ -1383,11 +1500,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                             ),
                                                           ),
                                                           TextButton(
-                                                            onPressed: () {
+                                                            onPressed: () async {
                                                               if (nameController.text.trim().isNotEmpty) {
+                                                                final newUsername = nameController.text.trim();
+                                                                
+                                                                // Update stored username
+                                                                await StorageService.updateUsername(newUsername);
+                                                                
                                                                 setState(() {
                                                                   _leaderboardUsers[0] = LeaderboardUser(
-                                                                    name: nameController.text.trim(),
+                                                                    name: newUsername,
                                                                     stars: user.stars,
                                                                     level: user.level,
                                                                     rank: user.rank,
@@ -1395,6 +1517,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                                     problemsSolved: user.problemsSolved,
                                                                     daysStreak: user.daysStreak,
                                                                     achievements: user.achievements,
+                                                                    githubUrl: user.githubUrl,
                                                                   );
                                                                 });
                                                                 Navigator.pop(context); // Close edit dialog
@@ -1503,7 +1626,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'Achievements',
                         style: TextStyle(
                           color: Colors.white,
@@ -1517,7 +1640,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         runSpacing: 8,
                         children: user.achievements.map((achievement) {
                           return Container(
-                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: Colors.blue.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(15),
@@ -1528,7 +1651,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                             ),
                             child: Text(
                               achievement,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
                               ),
@@ -1545,10 +1668,40 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // Avatar Shop Button
+                      // Learning Path Settings
                       _buildSettingItem(
-                        icon: Icons.store_outlined,
-                        label: 'Avatar Shop',
+                        icon: Icons.school_outlined,
+                        label: 'Learning Path',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _showLearningPathSettings(context);
+                        },
+                      ),
+                                                            const SizedBox(height: 10),
+                                      // GitHub Repository Settings
+                                      _buildSettingItem(
+                                        icon: Icons.code_outlined,
+                                        label: 'GitHub Repository',
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _showGitHubSettings(context);
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      // App Language Settings
+                                      _buildSettingItem(
+                                        icon: Icons.language_outlined,
+                                        label: 'App Language',
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          _showLanguageSettings(context);
+                                        },
+                                      ),
+                                      const SizedBox(height: 10),
+                                      // Avatar Shop Button
+                                      _buildSettingItem(
+                                        icon: Icons.store_outlined,
+                                        label: 'Avatar Shop',
                         onTap: () {
                           Navigator.pop(context);
                           showDialog(
@@ -1606,7 +1759,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                                   height: 20,
                                                 ),
                                                 const SizedBox(width: 5),
-                                                Text(
+                                                const Text(
                                                   '250',
                                                   style: TextStyle(
                                                     color: Colors.white,
@@ -1788,6 +1941,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               ],
             ),
+            ),
           ),
         );
       },
@@ -1873,7 +2027,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ),
                     ),
                     TextButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        // Clear stored login data
+                        await StorageService.clearLoginData();
+                        
+                        // Show logout success message
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text(
+                                'Logged out successfully!',
+                                style: TextStyle(color: Colors.white),
+                                textAlign: TextAlign.center,
+                              ),
+                              backgroundColor: Colors.green.withOpacity(0.7),
+                              duration: const Duration(seconds: 2),
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.only(bottom: 100, left: 50, right: 50),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                            ),
+                          );
+                        }
+                        
+                        // Navigate to login and clear all previous routes
                         Navigator.of(context).pushNamedAndRemoveUntil(
                           '/login',
                           (Route<dynamic> route) => false,
@@ -1891,7 +2067,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                       ),
                       child: const Text(
-                        'Logout',
+                        '🚪 Logout',
                         style: TextStyle(
                           color: Colors.red,
                           fontSize: 16,
@@ -2075,8 +2251,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return Dialog(
           backgroundColor: Colors.transparent,
           child: Container(
-            width: MediaQuery.of(context).size.width * 0.95, // Almost full width
-            height: MediaQuery.of(context).size.height * 0.8, // 80% of screen height
+            width: MediaQuery.of(context).size.width * 0.95,
+            height: MediaQuery.of(context).size.height * 0.85,
             decoration: BoxDecoration(
               color: const Color.fromARGB(255, 39, 93, 194),
               borderRadius: BorderRadius.circular(20),
@@ -2095,6 +2271,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: StatefulBuilder(
               builder: (context, setState) {
                 final member = teamMembers[_currentTeamMemberIndex];
+                final screenWidth = MediaQuery.of(context).size.width;
+                final isSmallScreen = screenWidth < 400;
+                
                 return Stack(
                   children: [
                     // Background glow effects
@@ -2102,7 +2281,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       top: 0,
                       left: 0,
                       right: 0,
-                      height: 300,
+                      height: isSmallScreen ? 200 : 300,
                       child: Container(
                         decoration: BoxDecoration(
                           gradient: RadialGradient(
@@ -2119,78 +2298,130 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
                     Column(
                       children: [
-                        // Info section at the top
+                        // Info section at the top - made responsive
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(30, 30, 30, 20),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Profile image
-                              Container(
-                                width: 150,
-                                height: 150,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.blue.withOpacity(0.5),
-                                    width: 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.withOpacity(0.2),
-                                      blurRadius: 15,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: Icon(
-                                    Icons.person,
-                                    size: 80,
-                                    color: Colors.white.withOpacity(0.7),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 25),
-                              // Info fields
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    _buildInfoField('Name', member.name),
-                                    const SizedBox(height: 10),
-                                    _buildInfoField('Skills', member.skills),
-                                    const SizedBox(height: 10),
-                                    _buildInfoField('Role', member.role),
-                                    const SizedBox(height: 10),
-                                    _buildInfoField('Superpower', member.superpower.toString()),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          padding: EdgeInsets.fromLTRB(
+                            isSmallScreen ? 15 : 30, 
+                            isSmallScreen ? 20 : 30, 
+                            isSmallScreen ? 15 : 30, 
+                            isSmallScreen ? 15 : 20
                           ),
+                          child: isSmallScreen 
+                            ? Column(
+                                children: [
+                                  // Profile image for small screens
+                                  Container(
+                                    width: isSmallScreen ? 100 : 150,
+                                    height: isSmallScreen ? 100 : 150,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.blue.withOpacity(0.5),
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.blue.withOpacity(0.2),
+                                          blurRadius: 15,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.person,
+                                        size: isSmallScreen ? 50 : 80,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  // Info fields for small screens
+                                  ...['Name', 'Skills', 'Role', 'Superpower'].map((label) {
+                                    final value = label == 'Name' ? member.name 
+                                        : label == 'Skills' ? member.skills
+                                        : label == 'Role' ? member.role
+                                        : member.superpower.toString();
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 8),
+                                      child: _buildInfoField(label, value),
+                                    );
+                                  }).toList(),
+                                ],
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Profile image for larger screens
+                                  Container(
+                                    width: 150,
+                                    height: 150,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: Colors.blue.withOpacity(0.5),
+                                        width: 2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.blue.withOpacity(0.2),
+                                          blurRadius: 15,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Icon(
+                                        Icons.person,
+                                        size: 80,
+                                        color: Colors.white.withOpacity(0.7),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 25),
+                                  // Info fields for larger screens
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        _buildInfoField('Name', member.name),
+                                        const SizedBox(height: 10),
+                                        _buildInfoField('Skills', member.skills),
+                                        const SizedBox(height: 10),
+                                        _buildInfoField('Role', member.role),
+                                        const SizedBox(height: 10),
+                                        _buildInfoField('Superpower', member.superpower.toString()),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                         ),
 
-                        // Character SVG and Description section
+                        // Character SVG and Description section - made responsive
                         Expanded(
                           child: Column(
                             children: [
-                              // Character SVG
-                                                           Expanded(
-                               child: Container(
-                                 width: double.infinity,
-                                 padding: const EdgeInsets.symmetric(vertical: 10),
-                                 child: SvgPicture.asset(
-                                   member.svgPath,
-                                   fit: BoxFit.fitHeight,
-                                 ),
-                               ),
+                              // Character SVG - responsive sizing
+                              Expanded(
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: EdgeInsets.symmetric(
+                                    vertical: isSmallScreen ? 5 : 10,
+                                    horizontal: isSmallScreen ? 10 : 20,
+                                  ),
+                                  child: SvgPicture.asset(
+                                    member.svgPath,
+                                    fit: BoxFit.fitHeight,
+                                  ),
+                                ),
                               ),
                               
-                              // Description at the bottom
+                              // Description at the bottom - responsive padding and font
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.all(30),
+                                padding: EdgeInsets.all(isSmallScreen ? 20 : 30),
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     begin: Alignment.topCenter,
@@ -2207,7 +2438,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                                   member.description,
                                   style: TextStyle(
                                     color: Colors.white.withOpacity(0.9),
-                                    fontSize: 18,
+                                    fontSize: isSmallScreen ? 14 : 18,
                                     height: 1.5,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2217,17 +2448,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           ),
                         ),
 
-                        // Page indicator
+                        // Page indicator - responsive positioning
                         Padding(
-                          padding: const EdgeInsets.only(bottom: 30),
+                          padding: EdgeInsets.only(
+                            bottom: isSmallScreen ? 20 : 30,
+                            left: isSmallScreen ? 10 : 20,
+                            right: isSmallScreen ? 10 : 20,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: List.generate(
                               teamMembers.length,
                               (index) => Container(
-                                width: 12,
-                                height: 12,
-                                margin: const EdgeInsets.symmetric(horizontal: 4),
+                                width: isSmallScreen ? 8 : 12,
+                                height: isSmallScreen ? 8 : 12,
+                                margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 3 : 4),
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: index == _currentTeamMemberIndex
@@ -2250,10 +2485,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ],
                     ),
                     
-                    // Navigation arrows with enhanced styling
+                    // Navigation arrows - responsive positioning and sizing
                     Positioned(
-                      left: 10,
-                      top: 300,
+                      left: isSmallScreen ? 5 : 10,
+                      top: isSmallScreen ? 200 : 300,
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
@@ -2275,14 +2510,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           icon: Icon(
                             Icons.chevron_left,
                             color: Colors.white.withOpacity(0.9),
-                            size: 32,
+                            size: isSmallScreen ? 24 : 32,
                           ),
+                          padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
                         ),
                       ),
                     ),
                     Positioned(
-                      right: 10,
-                      top: 300,
+                      right: isSmallScreen ? 5 : 10,
+                      top: isSmallScreen ? 200 : 300,
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
@@ -2301,16 +2537,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           icon: Icon(
                             Icons.chevron_right,
                             color: Colors.white.withOpacity(0.9),
-                            size: 32,
+                            size: isSmallScreen ? 24 : 32,
                           ),
+                          padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
                         ),
                       ),
                     ),
                     
-                    // Close button with enhanced styling
+                    // Close button - responsive positioning and sizing
                     Positioned(
-                      right: 10,
-                      top: 10,
+                      right: isSmallScreen ? 5 : 10,
+                      top: isSmallScreen ? 5 : 10,
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.1),
@@ -2325,7 +2562,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           icon: Icon(
                             Icons.close,
                             color: Colors.white.withOpacity(0.9),
+                            size: isSmallScreen ? 20 : 24,
                           ),
+                          padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
                         ),
                       ),
                     ),
@@ -2340,12 +2579,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildInfoField(String label, String value) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 400;
+    
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+      margin: EdgeInsets.symmetric(vertical: isSmallScreen ? 2 : 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: isSmallScreen ? 10 : 15, 
+        vertical: isSmallScreen ? 6 : 8
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFFF5D6A7).withOpacity(0.9), // Slightly brighter
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(isSmallScreen ? 8 : 10),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
@@ -2358,21 +2603,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         children: [
           Text(
             '$label:',
-            style: const TextStyle(
-              color: Color(0xFF1A1A1A),
-              fontSize: 12,
+            style: TextStyle(
+              color: const Color(0xFF1A1A1A),
+              fontSize: isSmallScreen ? 10 : 12,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: isSmallScreen ? 6 : 10),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Color(0xFF1A1A1A),
-                fontSize: 12,
+              style: TextStyle(
+                color: const Color(0xFF1A1A1A),
+                fontSize: isSmallScreen ? 10 : 12,
               ),
               textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -2634,14 +2880,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0A1832), // Dark blue background
+      backgroundColor: const Color(0xFF133B6E), // Lighter blue background
       body: SafeArea(
         child: Stack(
           children: [
             // Background PNG
             Positioned.fill(
               child: Image.asset(
-                'Assets/background/home-back1.png',
+                'Assets/background/home-map.png',
                 fit: BoxFit.cover,
               ),
             ),
@@ -2649,7 +2895,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             // Dark overlay
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withOpacity(0.15),
               ),
             ),
             
@@ -2743,9 +2989,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
 
-            // Tmazight button (left side)
+            // Tmazight button (left side) - made responsive
             Positioned(
-              left: -50,
+              left: MediaQuery.of(context).size.width < 400 ? -30 : -50,
               top: MediaQuery.of(context).size.height * 0.3,
               child: GestureDetector(
                 onTap: () {
@@ -2774,9 +3020,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   );
                 },
                 child: Container(
-                  width: 200,
-                  height: 200,
-                  padding: const EdgeInsets.all(30),
+                  width: MediaQuery.of(context).size.width < 400 ? 160 : 200,
+                  height: MediaQuery.of(context).size.width < 400 ? 160 : 200,
+                  padding: EdgeInsets.all(MediaQuery.of(context).size.width < 400 ? 20 : 30),
                   decoration: const BoxDecoration(
                     color: Colors.transparent,
                     borderRadius: BorderRadius.only(
@@ -2792,16 +3038,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
 
-            // Chibies button (right side)
+            // Chibies button (right side) - made responsive
             Positioned(
-              right: -40,
+              right: MediaQuery.of(context).size.width < 400 ? -20 : -40,
               top: MediaQuery.of(context).size.height * 0.09,
               child: GestureDetector(
                 onTap: () => _showTeamMemberCard(context),
                 child: Container(
-                  width: 150,
-                  height: 150,
-                  padding: const EdgeInsets.all(30),
+                  width: MediaQuery.of(context).size.width < 400 ? 120 : 150,
+                  height: MediaQuery.of(context).size.width < 400 ? 120 : 150,
+                  padding: EdgeInsets.all(MediaQuery.of(context).size.width < 400 ? 20 : 30),
                   decoration: const BoxDecoration(
                     color: Colors.transparent,
                     borderRadius: BorderRadius.only(
@@ -2903,7 +3149,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     width: 1,
                   ),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.add,
                   color: Colors.white,
                   size: 16,
@@ -2946,6 +3192,408 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           icon,
           color: isSelected ? Colors.blue : Colors.white,
           size: isHome ? 48 : 38,
+        ),
+      ),
+    );
+  }
+
+  void _showLearningPathSettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A1832).withOpacity(0.95),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.blue.withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.blue.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.school_outlined,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Change Learning Path',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Learning paths
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildLearningPathOption(
+                          'Software Engineering',
+                          'Become a Software Developer',
+                          Icons.code,
+                          Colors.blue,
+                          'software_engineering',
+                        ),
+                        const SizedBox(height: 15),
+                        _buildLearningPathOption(
+                          'Tmazight Language',
+                          'Learn Amazigh Language',
+                          Icons.language,
+                          Colors.green,
+                          'tmazight_language',
+                        ),
+                        const SizedBox(height: 15),
+                        _buildLearningPathOption(
+                          'Academic Courses',
+                          'School Curriculum',
+                          Icons.school,
+                          Colors.purple,
+                          'academic_courses',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Close button
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.blue.withOpacity(0.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showLanguageSettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A1832).withOpacity(0.95),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.blue.withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Colors.blue.withOpacity(0.3),
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.language_outlined,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Change App Language',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(
+                          Icons.close,
+                          color: Colors.white.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Language options
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildLanguageOption(
+                          'العربية',
+                          'Arabic',
+                          '🇸🇦',
+                          'arabic',
+                        ),
+                        const SizedBox(height: 15),
+                        _buildLanguageOption(
+                          'English',
+                          'English',
+                          '🇺🇸',
+                          'english',
+                        ),
+                        const SizedBox(height: 15),
+                        _buildLanguageOption(
+                          'Tamazight',
+                          'Amazigh',
+                          '🏔️',
+                          'tmazight',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Close button
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.blue.withOpacity(0.2),
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text(
+                      'Close',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLearningPathOption(String title, String subtitle, IconData icon, Color color, String pathId) {
+    return GestureDetector(
+      onTap: () async {
+        // Save the new learning path
+        await StorageService.updateLearningPath(pathId);
+        Navigator.pop(context);
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Learning path changed to $title!',
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            backgroundColor: Colors.green.withOpacity(0.7),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 100, left: 50, right: 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: color,
+                size: 25,
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.white.withOpacity(0.5),
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(String title, String subtitle, String flag, String langId) {
+    return GestureDetector(
+      onTap: () async {
+        // Save the new language
+        await StorageService.updateAppLanguage(langId);
+        Navigator.pop(context);
+        
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'App language changed to $title!',
+              style: const TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
+            ),
+            backgroundColor: Colors.green.withOpacity(0.7),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.only(bottom: 100, left: 50, right: 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.2),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  flag,
+                  style: const TextStyle(fontSize: 24),
+                ),
+              ),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.white.withOpacity(0.5),
+              size: 24,
+            ),
+          ],
         ),
       ),
     );
@@ -2999,6 +3647,175 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ),
       ),
+    );
+  }
+
+  void _showGitHubSettings(BuildContext context) {
+    final TextEditingController repoController = TextEditingController();
+    final TextEditingController tokenController = TextEditingController();
+    
+    // Load existing values
+    StorageService.getRepoUrl().then((url) => repoController.text = url ?? '');
+    StorageService.getGithubToken().then((token) => tokenController.text = token ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0A1832).withOpacity(0.95),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.blue.withOpacity(0.3),
+                width: 2,
+              ),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      const Icon(Icons.code_outlined, color: Colors.white, size: 24),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'GitHub Repository Settings',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Repository URL
+                  TextField(
+                    controller: repoController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      labelText: 'GitHub Repository URL',
+                      hintText: 'https://github.com/username/repo',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      hintStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.link, color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.blue.withOpacity(0.5)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // GitHub Token
+                  TextField(
+                    controller: tokenController,
+                    style: const TextStyle(color: Colors.white),
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      labelText: 'GitHub Personal Access Token',
+                      hintText: 'ghp_xxxxxxxxxxxxxxxxxxxx',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      hintStyle: const TextStyle(color: Colors.white70),
+                      prefixIcon: const Icon(Icons.key, color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.blue.withOpacity(0.5)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Info text
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: const Text(
+                      'Get your GitHub token from: Settings → Developer settings → Personal access tokens',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
+                  // Save button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        final repoUrl = repoController.text.trim();
+                        final token = tokenController.text.trim();
+                        
+                        if (repoUrl.isEmpty || token.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please fill both fields')),
+                          );
+                          return;
+                        }
+                        
+                        // Save to storage
+                        await StorageService.saveRepoUrl(repoUrl);
+                        await StorageService.saveGithubToken(token);
+                        
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('GitHub settings saved!')),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue[700],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Save Settings',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 } 

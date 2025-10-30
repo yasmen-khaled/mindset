@@ -41,7 +41,11 @@ class _WelcomePageState extends State<WelcomePage> with SingleTickerProviderStat
     // Navigate to home after 3 seconds
     Timer(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
+        Navigator.pushReplacementNamed(
+          context, 
+          '/home',
+          arguments: {'username': widget.username}
+        );
       }
     });
   }
